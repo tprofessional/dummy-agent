@@ -6,6 +6,12 @@
 
 ```pip install -r requirements.txt```
 
+FOR MAC:
+```python3 -m venv pac_env```
+
+```source pac_env/bin/activate```
+
+```pip3 install -r requirements.txt```
 
 
 
