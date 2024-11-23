@@ -6,6 +6,12 @@ from pacai.agents.learning.reinforcement import ReinforcementAgent
 from pacai.util import reflection
 from pacai.student.qlearningAgents import PacmanQAgent
 
+import random
+import logging
+
+import time
+from pacai.util import util
+
 # Option for the defensive agent that uses a deep q network (approximate q function)
 # that learns from a set of extracted features to act in a way that maximises short
 # and expected long term rewards
