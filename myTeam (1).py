@@ -3,6 +3,8 @@ from pacai.agents.capture.capture import CaptureAgent
 from pacai.core.distance import manhattan
 from pacai.bin.capture import CaptureGameState
 
+from pacai.student.defensiveAgents import *
+
 def createTeam(firstIndex, secondIndex, isRed):
     """
     This function should return a list of two agents that will form the capture team,
