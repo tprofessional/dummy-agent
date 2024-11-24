@@ -19,15 +19,54 @@ from pacai.util import util
 # This class needs a feature extractor and a custom reward function that incentivises
 # ceratin game states
 
-class DefenseAgentDQN(PacmanQAgent):
-    def __init__(self, index,
-            extractor = 'pacai.core.featureExtractors.IdentityExtractor', **kwargs):
+from pacai.core.actions import Actions
+from pacai.core.search import search
+from pacai.student.searchAgents import AnyFoodSearchProblem
+
+def getFeatures(state, action):
+    print(type(state), state)
+
+    # Extract the grid of food and wall locations and get the ghost locations.
+    food = state.getFood()
+    walls = state.getWalls()
+    ghosts = state.getGhostPositions()
+
+    features = {}
+    features["bias"] = 1.0
+
+    # Compute the location of pacman after he takes the action.
+    x, y = state.getPacmanPosition()
+    dx, dy = Actions.directionToVector(action)
+    next_x, next_y = int(x + dx), int(y + dy)
+
+    # Count the number of ghosts 1-step away.
+    features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in
+            Actions.getLegalNeighbors(g, walls) for g in ghosts)
+
+    # If there is no danger of ghosts then add the food feature.
+    if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
+        features["eats-food"] = 1.0
+
+    prob = AnyFoodSearchProblem(state, start = (next_x, next_y))
+    dist = len(search.bfs(prob))
+    if dist is not None:
+        # Make the distance a number less than one otherwise the update will diverge wildly.
+        features["closest-food"] = float(dist) / (walls.getWidth() * walls.getHeight())
+
+    for key in features:
+        features[key] /= 10.0
+
+    return features
+
+class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
+    def __init__(self, index, **kwargs):
+        
+        print(kwargs)
         super().__init__(index, **kwargs)
-        self.featExtractor = reflection.qualifiedImport(extractor)
 
         # You might want to initialize weights here.
         self.weights = {}
-        self.extractor = self.featExtractor()
+
 
     def final(self, state):
         """
@@ -47,7 +86,7 @@ class DefenseAgentDQN(PacmanQAgent):
         return self.weights.get(feature, 0.0)
 
     def getQValue(self, state, action):
-        features_dict: dict = self.extractor.getFeatures(state, action)
+        features_dict: dict = getFeatures(state, action)
 
         QValue = 0.0
         for feature, value in features_dict.items():
@@ -62,10 +101,15 @@ class DefenseAgentDQN(PacmanQAgent):
         correction = reward + gamma * nextValue - qValue
 
         alpha = self.getAlpha()
-        features_dict: dict = self.extractor.getFeatures(state, action)
+        features_dict: dict = getFeatures(state, action)
 
         for feature, value in features_dict.items():
             self.weights[feature] = self.get_weight(feature) + alpha * correction * value
+
+    def chooseAction(self, gameState):
+        action = super().getPolicy(gameState)
+        print(action)
+        return action
 
 
 

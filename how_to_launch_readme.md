@@ -2,7 +2,7 @@
 
 ```python -m venv pac_env```
 
-```pac_env activate```
+```pac_env/scripts/activate```
 
 ```pip install -r requirements.txt```
 

@@ -1,8 +1,8 @@
 from pacai.util import reflection
 
 def createTeam(firstIndex, secondIndex, isRed,
-        first = 'pacai.agents.capture.dummy.DummyAgent',
-        second = 'pacai.agents.capture.dummy.DummyAgent'):
+        first = 'pacai.student.defensiveAgents.DefenseAgentDQN',
+        second = 'pacai.student.defensiveAgents.DummyAgent1'):
     """
     This function should return a list of two agents that will form the capture team,
     initialized using firstIndex and secondIndex as their agent indexed.
