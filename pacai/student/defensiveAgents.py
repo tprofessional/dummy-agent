@@ -1,9 +1,9 @@
 import random
 from pacai.agents.capture.capture import CaptureAgent
-from pacai.core.distance import maze
 from pacai.bin.capture import CaptureGameState
 from pacai.agents.learning.reinforcement import ReinforcementAgent
 from pacai.util import reflection
+from pacai.core.distance import maze as slow_maze
 from pacai.student.qlearningAgents import PacmanQAgent
 
 import random
@@ -20,52 +20,100 @@ from pacai.util import util
 # ceratin game states
 
 from pacai.core.actions import Actions
-from pacai.core.search import search
-from pacai.student.searchAgents import AnyFoodSearchProblem
+from pacai.core.agentstate import AgentState
 
-def getFeatures(state, action):
-    print(type(state), state)
+def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
+    maze = lambda a, b: self.getMazeDistance(a, b)
 
-    # Extract the grid of food and wall locations and get the ghost locations.
-    food = state.getFood()
-    walls = state.getWalls()
-    ghosts = state.getGhostPositions()
+
 
     features = {}
     features["bias"] = 1.0
 
     # Compute the location of pacman after he takes the action.
-    x, y = state.getPacmanPosition()
-    dx, dy = Actions.directionToVector(action)
-    next_x, next_y = int(x + dx), int(y + dy)
+    teamate_state: AgentState = gameState.getAgentState((self.index + 2) % 4)
+    self_state: AgentState = gameState.getAgentState(self.index)
+    team_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getTeam(gameState)]
+    ops_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getOpponents(gameState)]
 
-    # Count the number of ghosts 1-step away.
-    features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in
-            Actions.getLegalNeighbors(g, walls) for g in ghosts)
+    ourFood = self.getFoodYouAreDefending(gameState)
+    opsFood = self.getFood(gameState)
 
-    # If there is no danger of ghosts then add the food feature.
-    if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
-        features["eats-food"] = 1.0
 
-    prob = AnyFoodSearchProblem(state, start = (next_x, next_y))
-    dist = len(search.bfs(prob))
-    if dist is not None:
-        # Make the distance a number less than one otherwise the update will diverge wildly.
-        features["closest-food"] = float(dist) / (walls.getWidth() * walls.getHeight())
+    ourCapsules = self.getCapsulesYouAreDefending(gameState)
+    opsCapsules = self.getCapsules(gameState)
 
-    for key in features:
-        features[key] /= 10.0
+    def is_prey(op: AgentState):
+        return (self_state.isBraveGhost() and op.isPacman()) or (self_state.isPacman() and op.isScaredGhost())
+    
+    def is_preditor(op: AgentState):
+        return (self_state.isPacman() and op.isBraveGhost()) or (self_state.isScaredGhost() and op.isPacman())
+    
+    to_ints = lambda x: (int(x[0]), int(x[1]))
+    vec_add = lambda x, y: (x[0] + y[0], x[1] + y[1])
+
+    pos = to_ints(gameState.getAgentPosition(self.index))
+    vel = to_ints(Actions.directionToVector(action))
+    next_pos = vec_add(pos, vel)
+
+    # for op in ops_states:
+    #     if is_prey(op):
+    #         print(next_pos, op.getPosition())
+    #         dist = maze(next_pos, op.getPosition(), gameState)
+
+
+    prey_dists = sorted([maze(next_pos, to_ints(op.getPosition())) for op in ops_states if is_prey(op)])
+    preditor_dists = sorted([maze(next_pos, to_ints(op.getPosition())) for op in ops_states if is_preditor(op)])
+
+    if len(prey_dists) > 0:
+        features['near-prey'] = prey_dists[0]
+
+    if len(prey_dists) > 1:
+        features['far-prey'] = prey_dists[1]
+
+    if len(preditor_dists) > 0:
+        features['near-preditor'] = preditor_dists[0]
+
+    if len(preditor_dists) > 1:
+        features['far-preditor'] = preditor_dists[1]
+
+    if len(opsCapsules) != 0:
+        min_dist = min([maze(next_pos, cap) for cap in opsCapsules])
+        features['min-capsule-distance'] = min_dist
+
+    if len(opsFood.asList()) != 0:
+        min_dist = min([maze(next_pos, food) for food in opsFood.asList()])
+        features['nearest-food'] = min_dist
+
+    # for key in features:
+    #     features[key] /= 10.0
 
     return features
 
 class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
-    def __init__(self, index, **kwargs):
-        
-        print(kwargs)
-        super().__init__(index, **kwargs)
+    def __init__(self, index):
+        CaptureAgent.__init__(self, index)
+        PacmanQAgent.__init__(self, index, epsilon = 0.05, gamma = 0.5, alpha = 0.0001, numTraining = 100)
+
+        print(f'Learning Rate = {self.alpha}')
+        print(f'Discount Rate = {self.discountRate}')
 
         # You might want to initialize weights here.
         self.weights = {}
+
+    def registerInitialState(self, gameState:CaptureGameState):
+        """
+        This method handles the initial setup of the agent and populates useful fields,
+        such as the team the agent is on and the `pacai.core.distanceCalculator.Distancer`.
+
+        IMPORTANT: If this method runs for more than 15 seconds, your agent will time out.
+        """
+        # get distances from board (maze distance)
+        print(f"Episodes = {self.episodesSoFar}, Weghts = {self.weights}")
+
+        PacmanQAgent.registerInitialState(self, gameState)
+        CaptureAgent.registerInitialState(self, gameState)
+
 
 
     def final(self, state):
@@ -86,7 +134,8 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         return self.weights.get(feature, 0.0)
 
     def getQValue(self, state, action):
-        features_dict: dict = getFeatures(state, action)
+        features_dict: dict = getFeatures(self, state, action)
+        # print(features_dict)
 
         QValue = 0.0
         for feature, value in features_dict.items():
@@ -101,7 +150,7 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         correction = reward + gamma * nextValue - qValue
 
         alpha = self.getAlpha()
-        features_dict: dict = getFeatures(state, action)
+        features_dict: dict = getFeatures(self, state, action)
 
         for feature, value in features_dict.items():
             self.weights[feature] = self.get_weight(feature) + alpha * correction * value

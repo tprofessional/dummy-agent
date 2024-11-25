@@ -1,6 +1,7 @@
 from pacai.agents.learning.reinforcement import ReinforcementAgent
 from pacai.core.gamestate import AbstractGameState
 from pacai.util import reflection
+from random import choice
 
 class QLearningAgent(ReinforcementAgent):
     """
@@ -110,8 +111,10 @@ class QLearningAgent(ReinforcementAgent):
         if not actions:
             return None
         action_values = [self.getQValue(state, action) for action in actions]
-        max_index = action_values.index(max(action_values))
-        return actions[max_index]
+        max_value = max(action_values)
+        max_actions = [action for action, value in zip(actions, action_values) if value == max_value]
+
+        return choice(max_actions)
     
     def getAction(self, state):
         from random import choice
@@ -218,4 +221,3 @@ class ApproximateQAgent(PacmanQAgent):
 
         for feature, value in features_dict.items():
             self.weights[feature] = self.get_weight(feature) + alpha * correction * value
-            
