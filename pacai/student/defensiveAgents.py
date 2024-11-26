@@ -33,7 +33,7 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
 
     # Compute the location of pacman after he takes the action.
     teamate_state: AgentState = gameState.getAgentState((self.index + 2) % 4)
-    self_state: AgentState = gameState.getAgentState(self.index)
+    next_self_state: AgentState = nextGameState.getAgentState(self.index)
     team_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getTeam(gameState)]
     ops_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getOpponents(gameState)]
     ops_next_states: list[AgentState] = [nextGameState.getAgentState(idx) for idx in self.getOpponents(nextGameState)]
@@ -45,14 +45,15 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     opsCapsules = self.getCapsules(gameState)
 
     def is_prey(op: AgentState):
-        return (self_state.isBraveGhost() and op.isPacman()) or (self_state.isPacman() and op.isScaredGhost())
+        return (next_self_state.isBraveGhost() and op.isPacman()) or (next_self_state.isPacman() and op.isScaredGhost())
     
     def is_preditor(op: AgentState):
-        return (self_state.isPacman() and op.isBraveGhost()) or (self_state.isScaredGhost() and op.isPacman())
+        return (next_self_state.isPacman() and op.isBraveGhost()) or (next_self_state.isScaredGhost() and op.isPacman())
     
     to_ints = lambda x: (int(x[0]), int(x[1]))
     vec_add = lambda x, y: (x[0] + y[0], x[1] + y[1])
 
+    pos = to_ints(gameState.getAgentPosition(self.index))
     next_pos = to_ints(nextGameState.getAgentPosition(self.index))
     start_pos = to_ints(self.start_state.getAgentPosition(self.index))
     teamate_pos = to_ints(gameState.getAgentPosition((self.index + 2) % 4))
@@ -63,12 +64,16 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
 
     if len(prey_dists) > 0:
         features['near-prey'] = prey_dists[0]
+        features['kills-prey'] = prey_dists[0] == 0
 
     # if len(prey_dists) > 1:
     #     features['far-prey'] = prey_dists[1]
 
     if len(preditor_dists) > 0:
         features['near-preditor'] = preditor_dists[0]
+        features['preditor-1-away'] = preditor_dists[0] == 1
+        # features['dies'] = maze(pos, next_pos) > 1    # fix this
+
 
     # if len(preditor_dists) > 1:
     #     features['far-preditor'] = preditor_dists[1]
@@ -87,8 +92,11 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
 
     features['number-of-food'] = len(self.getFood(nextGameState).asList()) - 2
 
-    # closest to our spawn in the x-axis
+    # closest op to our spawn along the x-axis
     features['closest-op-to-spawn'] = min(dists_from_spawn)
+
+    # distance from spawn along the x-axis
+    features['dist-from-spawn'] = abs(next_pos[0] - start_pos[0])
 
     # if self.red:
     #     features['score'] = nextGameState.getScore()
@@ -101,20 +109,25 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     return features
 
 class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
-    def __init__(self, index):
+    def __init__(self, index, weights=None, epsilon=0.5, gamma=0.75, alpha=0.0002, numTraining=50, update_frequency=100):
         CaptureAgent.__init__(self, index)
-        PacmanQAgent.__init__(self, index, epsilon = 0.5, gamma = 0.75, alpha = 0.0002, numTraining = 100)
+        PacmanQAgent.__init__(self, index, epsilon=epsilon, gamma=gamma, alpha=alpha, numTraining=numTraining)
 
         self.startDiscountRate = self.getDiscountRate()
         self.startEpsilon = self.getEpsilon()
+        self.startAlpha = self.getAlpha()
 
 
         # You might want to initialize weights here.
-        self.update_frequency = 100     # number of updates between setting target_weights to weights
-        self.updates = 0                # total number of updates stored
-        self.weights = {}               # weights updated every transition
-        self.target_weights = {}        # weights updates infrequently
-        self.start_state = None         # starting state of the current game
+        self.update_frequency = update_frequency    # number of updates between setting target_weights to weights
+        self.updates = 0                            # total number of updates stored
+        self.weights = {}                           # weights updated every transition
+        self.target_weights = {}                    # weights updates infrequently
+        self.start_state = None                     # starting state of the current game
+
+        if weights:
+            self.weights = weights.copy()
+            self.target_weights = weights.copy()
 
     def registerInitialState(self, gameState:CaptureGameState):
         """
@@ -129,12 +142,16 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         CaptureAgent.registerInitialState(self, gameState)
         self.start_state = gameState
         epsilon_multiple = 0.01 ** (self.episodesSoFar / self.numTraining) if self.episodesSoFar < self.numTraining else 0
+        alpha_multiple = 0.5 ** (self.episodesSoFar / self.numTraining) if self.episodesSoFar < self.numTraining else 0
 
         self.epsilon = self.startEpsilon * epsilon_multiple
+        self.alpha = self.startAlpha * alpha_multiple
 
-        print(f"Episodes = {self.episodesSoFar}, Learning Rate = {self.alpha}, Epsilon = {self.epsilon}, Weghts = {self.target_weights}")
-
-
+        if (self.numTraining > 0):
+            print(f"Episodes = {self.episodesSoFar}, Learning Rate = {self.alpha}, Epsilon = {self.epsilon}, Weghts = {self.target_weights}")
+        elif (self.index == 0):
+            print(f"Episodes = {self.episodesSoFar}")
+                  
     def final(self, state):
         """
         Called at the end of each game.
