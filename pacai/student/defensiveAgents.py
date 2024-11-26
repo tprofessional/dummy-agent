@@ -36,6 +36,7 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     self_state: AgentState = gameState.getAgentState(self.index)
     team_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getTeam(gameState)]
     ops_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getOpponents(gameState)]
+    ops_next_states: list[AgentState] = [nextGameState.getAgentState(idx) for idx in self.getOpponents(nextGameState)]
 
     ourFood = self.getFoodYouAreDefending(gameState)
     opsFood = self.getFood(gameState)
@@ -58,18 +59,19 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
 
     prey_dists = sorted([maze(next_pos, to_ints(op.getPosition())) for op in ops_states if is_prey(op)])
     preditor_dists = sorted([maze(next_pos, to_ints(op.getPosition())) for op in ops_states if is_preditor(op)])
+    dists_from_spawn = sorted([abs(start_pos[0] - op.getPosition()[0]) for op in ops_next_states])
 
     if len(prey_dists) > 0:
         features['near-prey'] = prey_dists[0]
 
-    if len(prey_dists) > 1:
-        features['far-prey'] = prey_dists[1]
+    # if len(prey_dists) > 1:
+    #     features['far-prey'] = prey_dists[1]
 
     if len(preditor_dists) > 0:
         features['near-preditor'] = preditor_dists[0]
 
-    if len(preditor_dists) > 1:
-        features['far-preditor'] = preditor_dists[1]
+    # if len(preditor_dists) > 1:
+    #     features['far-preditor'] = preditor_dists[1]
 
     if len(opsCapsules) != 0:
         min_dist = min([maze(next_pos, cap) for cap in opsCapsules])
@@ -79,16 +81,19 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
         min_dist = min([maze(next_pos, food) for food in opsFood.asList()])
         features['nearest-food'] = min_dist
 
-    features['dist-from-start'] = min(10, maze(next_pos, start_pos))
+    # features['dist-from-start'] = min(10, maze(next_pos, start_pos))
 
     # features['dist-from-teamate'] = maze(next_pos, teamate_pos)
 
     features['number-of-food'] = len(self.getFood(nextGameState).asList()) - 2
 
-    if self.red:
-        features['score'] = nextGameState.getScore()
-    else:
-        features['score'] = -nextGameState.getScore()
+    # closest to our spawn in the x-axis
+    features['closest-op-to-spawn'] = min(dists_from_spawn)
+
+    # if self.red:
+    #     features['score'] = nextGameState.getScore()
+    # else:
+    #     features['score'] = -nextGameState.getScore()
 
     for key in features:
         features[key] /= 10.0
@@ -98,18 +103,18 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
 class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
     def __init__(self, index):
         CaptureAgent.__init__(self, index)
-        PacmanQAgent.__init__(self, index, epsilon = 0.1, gamma = 0.5, alpha = 0.0001, numTraining = 150)
+        PacmanQAgent.__init__(self, index, epsilon = 0.5, gamma = 0.75, alpha = 0.0002, numTraining = 100)
 
         self.startDiscountRate = self.getDiscountRate()
         self.startEpsilon = self.getEpsilon()
 
 
         # You might want to initialize weights here.
-        self.weights = {
-            # 'dist-from-teamate': 0,
-            'dist-from-start': 0.01,
-            }
-        self.start_state = None
+        self.update_frequency = 100     # number of updates between setting target_weights to weights
+        self.updates = 0                # total number of updates stored
+        self.weights = {}               # weights updated every transition
+        self.target_weights = {}        # weights updates infrequently
+        self.start_state = None         # starting state of the current game
 
     def registerInitialState(self, gameState:CaptureGameState):
         """
@@ -123,9 +128,11 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         PacmanQAgent.registerInitialState(self, gameState)
         CaptureAgent.registerInitialState(self, gameState)
         self.start_state = gameState
-        self.epsilon = self.startEpsilon * max(1 - self.episodesSoFar / self.numTraining, 0)
+        epsilon_multiple = 0.01 ** (self.episodesSoFar / self.numTraining) if self.episodesSoFar < self.numTraining else 0
 
-        print(f"Episodes = {self.episodesSoFar}, Learning Rate = {self.alpha}, Epsilon = {self.epsilon}, Weghts = {self.weights}")
+        self.epsilon = self.startEpsilon * epsilon_multiple
+
+        print(f"Episodes = {self.episodesSoFar}, Learning Rate = {self.alpha}, Epsilon = {self.epsilon}, Weghts = {self.target_weights}")
 
 
     def final(self, state):
@@ -140,10 +147,11 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         if self.episodesSoFar == self.numTraining:
             # You might want to print your weights here for debugging.
             # *** Your Code Here ***
-            print(self.weights)
+            # print(self.weights)
+            pass
         
     def get_weight(self, feature):
-        return self.weights.get(feature, random.uniform(-0.1, 0.1))
+        return self.target_weights.get(feature, 0)
 
     def getQValue(self, state, action):
         features_dict: dict = getFeatures(self, state, action)
@@ -167,9 +175,12 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         for feature, value in features_dict.items():
             self.weights[feature] = self.get_weight(feature) + alpha * correction * value
 
+        self.updates += 1
+        if self.updates % self.update_frequency == 0:
+            self.target_weights = self.weights.copy()
+
     def chooseAction(self, gameState):
         action = super().getPolicy(gameState)
-        print(action)
         return action
 
 
