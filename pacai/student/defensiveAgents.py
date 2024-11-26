@@ -25,7 +25,8 @@ from pacai.core.agentstate import AgentState
 def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     maze = lambda a, b: self.getMazeDistance(a, b)
 
-
+    
+    nextGameState: CaptureGameState = gameState.generateSuccessor(self.index, action)
 
     features = {}
     features["bias"] = 1.0
@@ -52,15 +53,9 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     to_ints = lambda x: (int(x[0]), int(x[1]))
     vec_add = lambda x, y: (x[0] + y[0], x[1] + y[1])
 
-    pos = to_ints(gameState.getAgentPosition(self.index))
-    vel = to_ints(Actions.directionToVector(action))
-    next_pos = vec_add(pos, vel)
-
-    # for op in ops_states:
-    #     if is_prey(op):
-    #         print(next_pos, op.getPosition())
-    #         dist = maze(next_pos, op.getPosition(), gameState)
-
+    next_pos = to_ints(nextGameState.getAgentPosition(self.index))
+    start_pos = to_ints(self.start_state.getAgentPosition(self.index))
+    teamate_pos = to_ints(gameState.getAgentPosition((self.index + 2) % 4))
 
     prey_dists = sorted([maze(next_pos, to_ints(op.getPosition())) for op in ops_states if is_prey(op)])
     preditor_dists = sorted([maze(next_pos, to_ints(op.getPosition())) for op in ops_states if is_preditor(op)])
@@ -85,21 +80,29 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
         min_dist = min([maze(next_pos, food) for food in opsFood.asList()])
         features['nearest-food'] = min_dist
 
-    # for key in features:
-    #     features[key] /= 10.0
+    features['dist-from-start'] = min(10, maze(next_pos, start_pos))
+
+    features['dist-from-teamate'] = maze(next_pos, teamate_pos)
+    for key in features:
+        features[key] /= 10.0
 
     return features
 
 class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
     def __init__(self, index):
         CaptureAgent.__init__(self, index)
-        PacmanQAgent.__init__(self, index, epsilon = 0.05, gamma = 0.5, alpha = 0.0001, numTraining = 100)
+        PacmanQAgent.__init__(self, index, epsilon = 0.1, gamma = 0.5, alpha = 0.0001, numTraining = 150)
 
-        print(f'Learning Rate = {self.alpha}')
-        print(f'Discount Rate = {self.discountRate}')
+        self.startDiscountRate = self.getDiscountRate()
+        self.startEpsilon = self.getEpsilon()
+
 
         # You might want to initialize weights here.
-        self.weights = {}
+        self.weights = {
+            'dist-from-teamate': 0,
+            'dist-from-start': 0,
+            }
+        self.start_state = None
 
     def registerInitialState(self, gameState:CaptureGameState):
         """
@@ -109,11 +112,13 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         IMPORTANT: If this method runs for more than 15 seconds, your agent will time out.
         """
         # get distances from board (maze distance)
-        print(f"Episodes = {self.episodesSoFar}, Weghts = {self.weights}")
 
         PacmanQAgent.registerInitialState(self, gameState)
         CaptureAgent.registerInitialState(self, gameState)
+        self.start_state = gameState
+        self.epsilon = self.startEpsilon * max(1 - self.episodesSoFar / self.numTraining, 0)
 
+        print(f"Episodes = {self.episodesSoFar}, Learning Rate = {self.alpha}, Epsilon = {self.epsilon}, Weghts = {self.weights}")
 
 
     def final(self, state):
