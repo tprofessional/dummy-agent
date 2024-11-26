@@ -2,6 +2,7 @@ from pacai.agents.learning.reinforcement import ReinforcementAgent
 from pacai.core.gamestate import AbstractGameState
 from pacai.util import reflection
 from random import choice
+from pacai.bin.capture import CaptureGameState
 
 class QLearningAgent(ReinforcementAgent):
     """
@@ -89,13 +90,13 @@ class QLearningAgent(ReinforcementAgent):
         which returns the actual best action.
         Whereas this method returns the value of the best action.
         """
-        actions = self.getLegalActions(state)
+        actions = state.getLegalActions(self.index)
         if not actions:
             return 0.0
         action_values = [self.getQValue(state, action) for action in actions]
         return max(action_values)
 
-    def getPolicy(self, state):
+    def getPolicy(self, state: CaptureGameState):
         """
         Return the best action in a state.
         I.E., the action that solves: `max_action Q(state, action)`.
@@ -107,8 +108,9 @@ class QLearningAgent(ReinforcementAgent):
         which returns the value of the best action.
         Whereas this method returns the best action itself.
         """
-        actions = self.getLegalActions(state)
-        if not actions:
+        # actions = self.getLegalActions(state)
+        actions = state.getLegalActions(self.index)
+        if actions is None:
             return None
         action_values = [self.getQValue(state, action) for action in actions]
         max_value = max(action_values)
@@ -116,11 +118,11 @@ class QLearningAgent(ReinforcementAgent):
 
         return choice(max_actions)
     
-    def getAction(self, state):
+    def getAction(self, state: CaptureGameState):
         from random import choice
         from pacai.util.probability import flipCoin
         if flipCoin(self.getEpsilon()):
-            random_action = choice(self.getLegalActions(state))
+            random_action = choice(state.getLegalActions(self.index))
             return random_action
         else:
             policy_action = self.getPolicy(state)

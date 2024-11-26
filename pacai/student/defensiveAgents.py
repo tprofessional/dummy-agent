@@ -6,6 +6,7 @@ from pacai.util import reflection
 from pacai.core.distance import maze as slow_maze
 from pacai.student.qlearningAgents import PacmanQAgent
 
+from random import random
 import random
 import logging
 
@@ -25,7 +26,6 @@ from pacai.core.agentstate import AgentState
 def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     maze = lambda a, b: self.getMazeDistance(a, b)
 
-    
     nextGameState: CaptureGameState = gameState.generateSuccessor(self.index, action)
 
     features = {}
@@ -39,7 +39,6 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
 
     ourFood = self.getFoodYouAreDefending(gameState)
     opsFood = self.getFood(gameState)
-
 
     ourCapsules = self.getCapsulesYouAreDefending(gameState)
     opsCapsules = self.getCapsules(gameState)
@@ -82,7 +81,15 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
 
     features['dist-from-start'] = min(10, maze(next_pos, start_pos))
 
-    features['dist-from-teamate'] = maze(next_pos, teamate_pos)
+    # features['dist-from-teamate'] = maze(next_pos, teamate_pos)
+
+    features['number-of-food'] = len(self.getFood(nextGameState).asList()) - 2
+
+    if self.red:
+        features['score'] = nextGameState.getScore()
+    else:
+        features['score'] = -nextGameState.getScore()
+
     for key in features:
         features[key] /= 10.0
 
@@ -99,8 +106,8 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
 
         # You might want to initialize weights here.
         self.weights = {
-            'dist-from-teamate': 0,
-            'dist-from-start': 0,
+            # 'dist-from-teamate': 0,
+            'dist-from-start': 0.01,
             }
         self.start_state = None
 
@@ -136,7 +143,7 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
             print(self.weights)
         
     def get_weight(self, feature):
-        return self.weights.get(feature, 0.0)
+        return self.weights.get(feature, random.uniform(-0.1, 0.1))
 
     def getQValue(self, state, action):
         features_dict: dict = getFeatures(self, state, action)

@@ -15,7 +15,9 @@ def createTeam(firstIndex, secondIndex, isRed,
     # secondAgent = reflection.qualifiedImport(second)
 
     firstAgent = DefenseAgentDQN
-    secondAgent = DummyAgent1
+    secondAgent = DefenseAgentDQN
+
+    print(firstIndex, secondIndex)
 
     return [
         firstAgent(firstIndex),
