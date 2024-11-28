@@ -108,7 +108,7 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     return features
 
 class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
-    def __init__(self, index, weights=None, epsilon=0.5, gamma=0.75, alpha=0.0002, numTraining=50, update_frequency=100):
+    def __init__(self, index, weights=None, epsilon=0.5, gamma=0.75, alpha=0.0002, numTraining=0, update_frequency=100):
         CaptureAgent.__init__(self, index)
         PacmanQAgent.__init__(self, index, epsilon=epsilon, gamma=gamma, alpha=alpha, numTraining=numTraining)
 
