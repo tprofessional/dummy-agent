@@ -52,6 +52,7 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     
     to_ints = lambda x: (int(x[0]), int(x[1]))
     vec_add = lambda x, y: (x[0] + y[0], x[1] + y[1])
+    safe_min = lambda arr: min(arr) if arr else 0
 
     pos = to_ints(gameState.getAgentPosition(self.index))
     next_pos = to_ints(nextGameState.getAgentPosition(self.index))
@@ -78,11 +79,11 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     #     features['far-preditor'] = preditor_dists[1]
 
     if len(opsCapsules) != 0:
-        min_dist = min([maze(next_pos, cap) for cap in opsCapsules])
+        min_dist = safe_min([maze(next_pos, cap) for cap in opsCapsules])
         features['min-capsule-distance'] = min_dist
 
     if len(opsFood.asList()) != 0:
-        min_dist = min([maze(next_pos, food) for food in opsFood.asList()])
+        min_dist = safe_min([maze(next_pos, food) for food in opsFood.asList()])
         features['nearest-food'] = min_dist
 
     # features['dist-from-start'] = min(10, maze(next_pos, start_pos))
@@ -92,7 +93,7 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     features['number-of-food'] = len(self.getFood(nextGameState).asList()) - 2
 
     # closest op to our spawn along the x-axis
-    features['closest-op-to-spawn'] = min(dists_from_spawn)
+    features['closest-op-to-spawn'] = safe_min(dists_from_spawn)
 
     # distance from spawn along the x-axis
     features['dist-from-spawn'] = abs(next_pos[0] - start_pos[0])
