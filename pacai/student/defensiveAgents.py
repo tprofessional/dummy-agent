@@ -74,7 +74,6 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
         features['preditor-1-away'] = preditor_dists[0] == 1
         # features['dies'] = maze(pos, next_pos) > 1    # fix this
 
-
     # if len(preditor_dists) > 1:
     #     features['far-preditor'] = preditor_dists[1]
 
@@ -116,7 +115,6 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         self.startDiscountRate = self.getDiscountRate()
         self.startEpsilon = self.getEpsilon()
         self.startAlpha = self.getAlpha()
-
 
         # You might want to initialize weights here.
         self.update_frequency = update_frequency    # number of updates between setting target_weights to weights
@@ -199,8 +197,6 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
     def chooseAction(self, gameState):
         action = super().getPolicy(gameState)
         return action
-
-
 
 # Copied over from pacai/agents/capture/dummy.py 
 class DummyAgent1(CaptureAgent):
