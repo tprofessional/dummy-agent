@@ -268,7 +268,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             'invaderDistance': -10,
             'stop': -100,
             'reverse': -2,
-            'ourFood': 200,
-            'ourCapsules': 250
+            'ourFood': 250,
+            'ourCapsules': 200
         }
     
