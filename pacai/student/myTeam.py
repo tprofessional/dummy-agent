@@ -1,14 +1,11 @@
 from pacai.agents.capture.capture import CaptureAgent
-from pacai.bin.capture import CaptureGameState
 from pacai.agents.learning.reinforcement import ReinforcementAgent
 from pacai.bin.capture import CaptureGameState
 from pacai.core.agentstate import AgentState
 from pacai.core.gamestate import AbstractGameState
 from pacai.util.probability import flipCoin
-from pacai.agents.capture.defense import DefensiveReflexAgent
 from pacai.core.directions import Directions
 from random import choice
-from math import log
 
 def createTeam(firstIndex, secondIndex, isRed,
         first = 'pacai.student.defensiveAgents.DummyAgent1',
@@ -20,144 +17,61 @@ def createTeam(firstIndex, secondIndex, isRed,
     and will be False if the blue team is being created.
     """
 
-    # firstAgent = reflection.qualifiedImport(first)
-    # secondAgent = reflection.qualifiedImport(second)
-
-    # 63%
-    # weights = {'bias': -8.921822791015062e-05,
-    #            'min-capsule-distance': -0.004895693381128324,
-    #            'nearest-food': -0.003921470464572105,
-    #            'number-of-food': -0.0023570021059283047,
-    #            'closest-op-to-spawn': 0.0007079519210047101,
-    #            'near-prey': -0.005176871054061819,
-    #            'near-preditor': 0.000818904174007504}
-
     # 64%
-    weights64 = {'bias': -8.855406482894479e-05,
-                'min-capsule-distance': -0.004969176113354762,
-                'nearest-food': -0.004061433122826846,
-                'number-of-food': -0.002340619632591361,
-                'closest-op-to-spawn': 0.0007394920809822344,
-                'near-prey': -0.005268531370921854,
-                'near-preditor': 0.0008454392419300111,
-                'dist-from-spawn': 9.77400528029471e-05,
-                'preditor-1-away': -3.197302339773383e-06,
-                'kills-prey': 3.6307053467143223e-06}
+    # weights64 = {'bias': -8.855406482894479e-05,
+    #             'min-capsule-distance': -0.004969176113354762,
+    #             'nearest-food': -0.004061433122826846,
+    #             'number-of-food': -0.002340619632591361,
+    #             'closest-op-to-spawn': 0.0007394920809822344,
+    #             'near-prey': -0.005268531370921854,
+    #             'near-preditor': 0.0008454392419300111,
+    #             'dist-from-spawn': 9.77400528029471e-05,
+    #             'preditor-1-away': -3.197302339773383e-06,
+    #             'kills-prey': 3.6307053467143223e-06}
 
-    # weights20 = {'bias': -0.0001011266355530183,
-    #             'min-capsule-distance': -0.0009538489318344521,
-    #             'nearest-food': -0.002213939271498827,
-    #             'number-of-food': -0.0014782898091452608,
-    #             'closest-op-to-spawn': -0.0005415827436528108,
-    #             'dist-from-spawn': -0.000677846260008125,
-    #             'near-prey': -0.001961097627818202,
-    #             'kills-prey': 1.7991642824025714e-05,
-    #             'near-preditor': -0.0005430379088875296,
-    #             'preditor-1-away': -0.00011515519687259614}
-
-    # weights57 = {'bias': -8.54439202241422e-05,
-    #              'min-capsule-distance': -0.001593006487503221,
-    #              'nearest-food': -0.0034689364346597597,
-    #              'number-of-food': -0.00135582191834622,
-    #              'closest-op-to-spawn': -5.2113102169178676e-05,
-    #              'dist-from-spawn': 0.00047392165693618674,
-    #              'near-prey': -0.002954485670500278,
-    #              'kills-prey': 1.8360569736113712e-05,
-    #              'near-preditor': 0.00034759392100765533,
-    #              'preditor-1-away': -0.00015194424802607786}
-
-    weights65 = {'bias': -8.629683049651184e-05,
-                 'min-capsule-distance': -0.0016011666836693072,
-                 'nearest-food': -0.003491814117702272,
-                 'number-of-food': -0.0013725675397402376,
-                 'closest-op-to-spawn': -5.289008986728529e-05,
-                 'dist-from-spawn': 0.0004703318508064342,
-                 'near-prey': -0.0029634303592519047,
-                 'kills-prey': 1.836418199981366e-05,
-                 'near-preditor': 0.0003266220620258886,
-                 'preditor-1-away': -0.0001535800627560156}
+    # weights65 = {'bias': -8.629683049651184e-05,
+    #              'min-capsule-distance': -0.0016011666836693072,
+    #              'nearest-food': -0.003491814117702272,
+    #              'number-of-food': -0.0013725675397402376,
+    #              'closest-op-to-spawn': -5.289008986728529e-05,
+    #              'dist-from-spawn': 0.0004703318508064342,
+    #              'near-prey': -0.0029634303592519047,
+    #              'kills-prey': 1.836418199981366e-05,
+    #              'near-preditor': 0.0003266220620258886,
+    #              'preditor-1-away': -0.0001535800627560156}
     
-    weightsManual = {'food-score': 1,
-                    'bias': -0.021131724512588056,
-                    'score': 10,
-                    'dies': -1,
-                    'food-tile': 1,
-                    'cap-tile': 1,
-                    'food-to-win': -1,
-                    'caps-score': 1,
-                    'pacprey-score': 0,
-                    'pacpred-score': 0,
-                    'ghostprey-score': 0.0,
-                    'ghostpred-score': 0.0}
-
-
-    
-    # secondAgent = DefenseAgentDQN(
-    #     secondIndex,
-    #     feature_extractor=betterFeatures,
-    #     weights={},
-    #     numTraining=0,
-    #     alpha=0.0001,
-    #     update_frequency=200,
-    #     debug=False
-    # )
-
-    # firstAgent = DefenseAgentDQN(
-    #     firstIndex,
-    #     weights=weights65,
-    #     numTraining=0,
-    #     alpha=0,
-    #     epsilon=0
-    # )
-
-    # secondAgent = DefenseAgentDQN(
-    #     secondIndex,
-    #     weights=weights64,
-    #     numTraining=0,
-    #     alpha=0,
-    #     epsilon=0
-    # )
-
-#        weights={'score': 100, 'food-score': 5, 'caps-score': 10, 'near-ghost': -1, 'stop': -0.1, 'defense-target-dist': -100},
-
-#         weights={'defense-target-dist': -1, 'food-score': 10, 'caps-score': 0.1, 'near-ghost': -3, 'stop': -1},
-
+    # weightsManual = {'food-score': 1,
+    #                 'bias': -0.021131724512588056,
+    #                 'score': 10,
+    #                 'dies': -1,
+    #                 'food-tile': 1,
+    #                 'cap-tile': 1,
+    #                 'food-to-win': -1,
+    #                 'caps-score': 1,
+    #                 'pacprey-score': 0,
+    #                 'pacpred-score': 0,
+    #                 'ghostprey-score': 0.0,
+    #                 'ghostpred-score': 0.0}
 
     firstAgent = CaptureQAgent(
         firstIndex,
         feature_extractor=betterFeatures,
-        weights={'defense-target-dist': -1, 'on-wrong-side': -1000,                     # defensive
-                 'food-score': 100, 'caps-score': 10, 'near-ghost': 0,                   # offensive
+        weights={'defense-target-dist': -1, 'on-wrong-side': -1000,
+                 'food-score': 100, 'caps-score': 10, 'near-ghost': 0,
                  'stop': -2, 'food-needs-defense': -10, 'kills-target': 100,
-                 'dies': -1000, 'ghost-1-away': -1000},     
+                 'dies': -1000, 'ghost-1-away': -1000},
         debug=False
     )
 
     secondAgent = CaptureQAgent(
         secondIndex,
         feature_extractor=betterFeatures,
-        weights={'defense-target-dist': -1, 'on-wrong-side': -1000,                     # defensive
-                 'food-score': 100, 'caps-score': 10, 'near-ghost': 0,                   # offensive
+        weights={'defense-target-dist': -1, 'on-wrong-side': -1000,
+                 'food-score': 100, 'caps-score': 10, 'near-ghost': 0,
                  'stop': -2, 'food-needs-defense': -10, 'kills-target': 100,
-                 'dies': -1000, 'ghost-1-away': -1000},                               # both
+                 'dies': -1000, 'ghost-1-away': -1000},
         debug=False
     )
-
-    # secondAgent = CaptureQAgent(
-    #     secondIndex,
-    #     feature_extractor=betterFeatures,
-    #     weights={'defense-target-dist': -1},
-    #     debug=False
-    # )
-
-    # # secondAgent = DefensiveReflexAgent(secondIndex)
-    # secondAgent = CaptureQAgent(
-    #     secondIndex,
-    #     weights=weights64,
-    #     numTraining=0,
-    #     alpha=0,
-    #     epsilon=0
-    # )
 
     return [firstAgent, secondAgent]
 
@@ -177,16 +91,16 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     features["bias"] = 1.0
 
     # Compute the location of pacman after he takes the action.
-    teamate_state: AgentState = gameState.getAgentState((self.index + 2) % 4)
+    # teamate_state: AgentState = gameState.getAgentState((self.index + 2) % 4)
     next_self_state: AgentState = nextGameState.getAgentState(self.index)
-    team_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getTeam(gameState)]
+    # team_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getTeam(gameState)]
     ops_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getOpponents(gameState)]
     ops_next_states: list[AgentState] = [nextGameState.getAgentState(idx) for idx in self.getOpponents(nextGameState)]
 
-    ourFood = self.getFoodYouAreDefending(gameState)
+    # ourFood = self.getFoodYouAreDefending(gameState)
     opsFood = self.getFood(gameState)
 
-    ourCapsules = self.getCapsulesYouAreDefending(gameState)
+    # ourCapsules = self.getCapsulesYouAreDefending(gameState)
     opsCapsules = self.getCapsules(gameState)
 
     def is_prey(op: AgentState):
@@ -270,14 +184,14 @@ def betterFeatures(self: CaptureAgent, state: CaptureGameState, action):
     nextSelfState: AgentState = nextState.getAgentState(self.index)
     opsTeam: list[AgentState] = [state.getAgentState(idx) for idx in self.getOpponents(state)]
 
-    def pacman_prey(op: AgentState):
-        return nextSelfState.isBraveGhost() and op.isPacman()
+    # def pacman_prey(op: AgentState):
+    #     return nextSelfState.isBraveGhost() and op.isPacman()
 
-    def pacman_pred(op: AgentState):
-        return nextSelfState.isScaredGhost() and op.isPacman()
+    # def pacman_pred(op: AgentState):
+    #     return nextSelfState.isScaredGhost() and op.isPacman()
     
-    def ghost_prey(op: AgentState):
-        return nextSelfState.isPacman() and op.isScaredGhost()
+    # def ghost_prey(op: AgentState):
+    #     return nextSelfState.isPacman() and op.isScaredGhost()
     
     def ghost_pred(op: AgentState):
         return nextSelfState.isPacman() and op.isBraveGhost()
@@ -573,9 +487,6 @@ class CaptureQAgent(PacmanQAgent, CaptureAgent):
 
         # Did we finish training?
         if self.episodesSoFar == self.numTraining:
-            # You might want to print your weights here for debugging.
-            # *** Your Code Here ***
-            # print(self.weights)
             pass
         
     def get_weight(self, feature):
@@ -612,76 +523,3 @@ class CaptureQAgent(PacmanQAgent, CaptureAgent):
     def chooseAction(self, gameState):
         action = super().getPolicy(gameState)
         return action
-
-# Copied over from pacai/agents/capture/dummy.py
-# class DummyAgent1(CaptureAgent):
-#     """
-#     A Dummy agent to serve as an example of the necessary agent structure.
-#     You should look at `pacai.core.baselineTeam` for more details about how to create an agent.
-#     """
-
-#     def __init__(self, index, **kwargs):
-#         super().__init__(index, **kwargs)
-
-#     def chooseAction(self, gameState):
-#         """
-#         Picks among the actions with the highest return from `ReflexCaptureAgent.evaluate`.
-#         """
-
-#         actions = gameState.getLegalActions(self.index)
-
-#         start = time.time()
-#         values = [self.evaluate(gameState, a) for a in actions]
-#         logging.debug('evaluate() time for agent %d: %.4f' % (self.index, time.time() - start))
-
-#         maxValue = max(values)
-#         bestActions = [a for a, v in zip(actions, values) if v == maxValue]
-
-#         return random.choice(bestActions)
-
-#     def getSuccessor(self, gameState, action):
-#         """
-#         Finds the next successor which is a grid position (location tuple).
-#         """
-
-#         successor = gameState.generateSuccessor(self.index, action)
-#         pos = successor.getAgentState(self.index).getPosition()
-
-#         if (pos != util.nearestPoint(pos)):
-#             # Only half a grid position was covered.
-#             return successor.generateSuccessor(self.index, action)
-#         else:
-#             return successor
-
-#     def evaluate(self, gameState, action):
-#         """
-#         Computes a linear combination of features and feature weights.
-#         """
-
-#         features = self.getFeatures(gameState, action)
-#         weights = self.getWeights(gameState, action)
-#         stateEval = sum(features[feature] * weights[feature] for feature in features)
-
-#         return stateEval
-
-#     def getFeatures(self, gameState, action):
-#         features = {}
-#         successor = self.getSuccessor(gameState, action)
-#         features['successorScore'] = self.getScore(successor)
-
-#         # Compute distance to the nearest food.
-#         foodList = self.getFood(successor).asList()
-
-#         # This should always be True, but better safe than sorry.
-#         if (len(foodList) > 0):
-#             myPos = successor.getAgentState(self.index).getPosition()
-#             minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-#             features['distanceToFood'] = minDistance
-
-#         return features
-
-#     def getWeights(self, gameState, action):
-#         return {
-#             'successorScore': 100,
-#             'distanceToFood': -1
-#         }
