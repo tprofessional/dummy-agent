@@ -2,12 +2,13 @@ from pacai.agents.capture.capture import CaptureAgent
 from pacai.bin.capture import CaptureGameState
 from pacai.agents.learning.reinforcement import ReinforcementAgent
 from pacai.bin.capture import CaptureGameState
-from pacai.util import util
-
-import random
-from random import random, choice
-
-import time
+from pacai.core.agentstate import AgentState
+from pacai.core.gamestate import AbstractGameState
+from pacai.util.probability import flipCoin
+from pacai.agents.capture.defense import DefensiveReflexAgent
+from pacai.core.directions import Directions
+from random import choice
+from math import log
 
 def createTeam(firstIndex, secondIndex, isRed,
         first = 'pacai.student.defensiveAgents.DummyAgent1',
@@ -75,22 +76,88 @@ def createTeam(firstIndex, secondIndex, isRed,
                  'kills-prey': 1.836418199981366e-05,
                  'near-preditor': 0.0003266220620258886,
                  'preditor-1-away': -0.0001535800627560156}
-
-    firstAgent = DefenseAgentDQN(
-        firstIndex,
-        weights=weights65,
-        numTraining=0,
-        alpha=0,
-        epsilon=0
-    )
     
-    secondAgent = DefenseAgentDQN(
-        secondIndex,
-        weights=weights64,
-        numTraining=0,
-        alpha=0,
-        epsilon=0
+    weightsManual = {'food-score': 1,
+                    'bias': -0.021131724512588056,
+                    'score': 10,
+                    'dies': -1,
+                    'food-tile': 1,
+                    'cap-tile': 1,
+                    'food-to-win': -1,
+                    'caps-score': 1,
+                    'pacprey-score': 0,
+                    'pacpred-score': 0,
+                    'ghostprey-score': 0.0,
+                    'ghostpred-score': 0.0}
+
+
+    
+    # secondAgent = DefenseAgentDQN(
+    #     secondIndex,
+    #     feature_extractor=betterFeatures,
+    #     weights={},
+    #     numTraining=0,
+    #     alpha=0.0001,
+    #     update_frequency=200,
+    #     debug=False
+    # )
+
+    # firstAgent = DefenseAgentDQN(
+    #     firstIndex,
+    #     weights=weights65,
+    #     numTraining=0,
+    #     alpha=0,
+    #     epsilon=0
+    # )
+
+    # secondAgent = DefenseAgentDQN(
+    #     secondIndex,
+    #     weights=weights64,
+    #     numTraining=0,
+    #     alpha=0,
+    #     epsilon=0
+    # )
+
+#        weights={'score': 100, 'food-score': 5, 'caps-score': 10, 'near-ghost': -1, 'stop': -0.1, 'defense-target-dist': -100},
+
+#         weights={'defense-target-dist': -1, 'food-score': 10, 'caps-score': 0.1, 'near-ghost': -3, 'stop': -1},
+
+
+    firstAgent = CaptureQAgent(
+        firstIndex,
+        feature_extractor=betterFeatures,
+        weights={'defense-target-dist': -1, 'on-wrong-side': -1000,                     # defensive
+                 'food-score': 100, 'caps-score': 10, 'near-ghost': 0,                   # offensive
+                 'stop': -2, 'food-needs-defense': -10, 'kills-target': 100,
+                 'dies': -1000, 'ghost-1-away': -1000},     
+        debug=False
     )
+
+    secondAgent = CaptureQAgent(
+        secondIndex,
+        feature_extractor=betterFeatures,
+        weights={'defense-target-dist': -1, 'on-wrong-side': -1000,                     # defensive
+                 'food-score': 100, 'caps-score': 10, 'near-ghost': 0,                   # offensive
+                 'stop': -2, 'food-needs-defense': -10, 'kills-target': 100,
+                 'dies': -1000, 'ghost-1-away': -1000},                               # both
+        debug=False
+    )
+
+    # secondAgent = CaptureQAgent(
+    #     secondIndex,
+    #     feature_extractor=betterFeatures,
+    #     weights={'defense-target-dist': -1},
+    #     debug=False
+    # )
+
+    # # secondAgent = DefensiveReflexAgent(secondIndex)
+    # secondAgent = CaptureQAgent(
+    #     secondIndex,
+    #     weights=weights64,
+    #     numTraining=0,
+    #     alpha=0,
+    #     epsilon=0
+    # )
 
     return [firstAgent, secondAgent]
 
@@ -100,9 +167,6 @@ def createTeam(firstIndex, secondIndex, isRed,
 #
 # This class needs a feature extractor and a custom reward function that incentivises
 # ceratin game states
-
-from pacai.core.actions import Actions
-from pacai.core.agentstate import AgentState
 
 def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
     maze = lambda a, b: self.getMazeDistance(a, b)
@@ -189,6 +253,108 @@ def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
 
     return features
 
+def betterFeatures(self: CaptureAgent, state: CaptureGameState, action):
+    to_ints = lambda x: (int(x[0]), int(x[1]))
+    maze = lambda a, b: self.getMazeDistance(to_ints(a), to_ints(b))
+
+    # Sum of 0.5^dist for every dist in an array
+    inv_exp_sum = lambda arr: sum([0.33 ** x for x in arr])
+
+
+    features = {}
+    features["bias"] = 1.0
+
+    # Compute the location of pacman after he takes the action.
+    nextState: CaptureGameState = state.generateSuccessor(self.index, action)
+    nextSelfState: AgentState = nextState.getAgentState(self.index)
+    opsTeam: list[AgentState] = [state.getAgentState(idx) for idx in self.getOpponents(state)]
+
+    def pacman_prey(op: AgentState):
+        return nextSelfState.isBraveGhost() and op.isPacman()
+
+    def pacman_pred(op: AgentState):
+        return nextSelfState.isScaredGhost() and op.isPacman()
+    
+    def ghost_prey(op: AgentState):
+        return nextSelfState.isPacman() and op.isScaredGhost()
+    
+    def ghost_pred(op: AgentState):
+        return nextSelfState.isPacman() and op.isBraveGhost()
+
+    pos0 = self.start_state.getAgentPosition(self.index)
+
+    pos = state.getAgentPosition(self.index)
+    teammatePos = state.getAgentPosition((self.index + 2) % 4)
+
+    nextPos = nextState.getAgentPosition(self.index)
+
+
+
+
+
+    foodDists = [maze(nextPos, food) for food in self.getFood(nextState).asList()]
+    totalFoodEaten = \
+        len(self.getFood(self.start_state).asList()) - len(self.getFood(nextState).asList())
+    capsDists = [maze(nextPos, cap) for cap in self.getCapsules(state)]
+    totalCapsEaten = \
+        len(self.getCapsules(self.start_state)) - len(self.getCapsules(nextState))
+
+    # pacpreyDists = [maze(pos, op.getPosition()) for op in opsTeam if pacman_prey(op)]
+    # pacpredDists = [maze(pos, op.getPosition()) for op in opsTeam if pacman_pred(op)]
+    # ghostpreyDists = [maze(pos, op.getPosition()) for op in opsTeam if ghost_prey(op)]
+    ghostDists = [maze(nextPos, op.getPosition()) for op in opsTeam if ghost_pred(op)]
+
+    # features['score'] = state.getScore()
+    # features['food-score'] = inv_exp_sum(foodDists) + totalFoodEaten
+    # features['caps-score'] = totalCapsEaten - min(capsDists, default=0)
+    # features['near-teamate'] = 0.5 ** maze(pos, teammatePos)
+    # features['near-ghost'] = num_one_away(ghostDists)
+
+    # targets determined to minimize total distance.
+    targetIndex = (self.index + 1) % 4
+    teamateTargetIndex = (self.index + 3) % 4
+    targetPos = state.getAgentPosition(targetIndex)
+    teamateTargetPos = state.getAgentPosition(teamateTargetIndex)
+    if maze(pos, targetPos) + maze(teammatePos, teamateTargetPos) > \
+        maze(pos, teamateTargetPos) + maze(teammatePos, targetPos):
+        targetIndex = (self.index + 3) % 4          # swap targets if it makes sense
+        teamateTargetIndex = (self.index + 1) % 4
+    targetPos = state.getAgentPosition(targetIndex)
+    teamateTargetPos = state.getAgentPosition(teamateTargetIndex)
+
+    targetDist = maze(nextPos, targetPos)
+    targetState: AgentState = state.getAgentState(targetIndex)
+    teamateTargetDist = maze(teammatePos, teamateTargetPos)
+
+
+
+
+    foodNeedsDefense = False
+    for food in self.getFoodYouAreDefending(nextState).asList():
+        if maze(targetPos, food) <= maze(nextPos, food):
+            foodNeedsDefense = True
+    
+    isWinning = self.getScore(state) > 0
+    defensiveMode = nextSelfState.isBraveGhost()
+    # and 
+    if defensiveMode:
+        features['defense-target-dist'] = maze(nextPos, targetPos)
+        features['on-wrong-side'] = nextState.isOnRedSide(nextPos) != nextState.isOnRedTeam(self.index)
+    else:
+        features['food-score'] = totalFoodEaten + inv_exp_sum(foodDists)
+        features['caps-score'] = totalCapsEaten + 1 / max(min(capsDists, default=1), 1)
+        features['near-ghost'] = min(ghostDists, default=0)
+        features['reverse'] = action == Directions.REVERSE[state.getAgentState(self.index).getDirection()]
+    features['stop'] = action == Directions.STOP
+    features['food-needs-defense'] = foodNeedsDefense
+    features['kills-target'] = targetDist == 0 and (nextSelfState.isBraveGhost() or targetState.isScaredGhost())
+    
+    features['dies'] = maze(pos, nextPos) > 1
+    features['ghost-1-away'] = min(ghostDists, default=0) == 1
+
+
+    return features
+
 class QLearningAgent(ReinforcementAgent):
     """
     A Q-Learning agent.
@@ -253,8 +419,6 @@ class QLearningAgent(ReinforcementAgent):
         # Q(s,a) <- Q(s,a) + alpha*[r + gamma*V(s') - Q(s,a)]
         self.QValues[(state, action)] = qValue + alpha * (reward + gamma * nextValue - qValue)
 
-    from pacai.core.gamestate import AbstractGameState
-
     def getQValue(self, state: AbstractGameState, action):
         """
         Get the Q-Value for a `pacai.core.gamestate.AbstractGameState`
@@ -304,8 +468,6 @@ class QLearningAgent(ReinforcementAgent):
         return choice(max_actions)
     
     def getAction(self, state: CaptureGameState):
-        from random import choice
-        from pacai.util.probability import flipCoin
         if flipCoin(self.getEpsilon()):
             random_action = choice(state.getLegalActions(self.index))
             return random_action
@@ -337,8 +499,10 @@ class PacmanQAgent(QLearningAgent):
 
         return action
 
-class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
-    def __init__(self, index, weights=None, epsilon=0.5, gamma=0.75, alpha=0.0002, numTraining=0, update_frequency=100):
+class CaptureQAgent(PacmanQAgent, CaptureAgent):
+    def __init__(self, index, weights=None, epsilon=0.5, gamma=0.75, alpha=0.0002, 
+                 numTraining=0, update_frequency=100, feature_extractor=getFeatures,
+                 debug=False):
         CaptureAgent.__init__(self, index)
         PacmanQAgent.__init__(self, index, epsilon=epsilon, gamma=gamma, alpha=alpha, numTraining=numTraining)
 
@@ -348,6 +512,8 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
 
         # You might want to initialize weights here.
         self.update_frequency = update_frequency    # number of updates between setting target_weights to weights
+        self.getFeatures = feature_extractor        # function to get features
+        self.debug = debug                          # outputs debug messages to console
         self.updates = 0                            # total number of updates stored
         self.weights = {}                           # weights updated every transition
         self.target_weights = {}                    # weights updates infrequently
@@ -399,8 +565,7 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         return self.target_weights.get(feature, 0)
 
     def getQValue(self, state, action):
-        features_dict: dict = getFeatures(self, state, action)
-        # print(features_dict)
+        features_dict: dict = self.getFeatures(self, state, action)
 
         QValue = 0.0
         for feature, value in features_dict.items():
@@ -415,7 +580,10 @@ class DefenseAgentDQN(PacmanQAgent, CaptureAgent):
         correction = reward + gamma * nextValue - qValue
 
         alpha = self.getAlpha()
-        features_dict: dict = getFeatures(self, state, action)
+        features_dict: dict = self.getFeatures(self, state, action)
+
+        if self.debug:
+            print(features_dict)
 
         for feature, value in features_dict.items():
             self.weights[feature] = self.get_weight(feature) + alpha * correction * value
