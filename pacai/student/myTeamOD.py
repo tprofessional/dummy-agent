@@ -269,6 +269,6 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             'stop': -100,
             'reverse': -2,
             'ourFood': 250,
-            'ourCapsules': 200
+            'ourCapsules': 400
         }
     
