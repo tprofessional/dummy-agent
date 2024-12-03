@@ -17,42 +17,6 @@ def createTeam(firstIndex, secondIndex, isRed,
     and will be False if the blue team is being created.
     """
 
-    # 64%
-    # weights64 = {'bias': -8.855406482894479e-05,
-    #             'min-capsule-distance': -0.004969176113354762,
-    #             'nearest-food': -0.004061433122826846,
-    #             'number-of-food': -0.002340619632591361,
-    #             'closest-op-to-spawn': 0.0007394920809822344,
-    #             'near-prey': -0.005268531370921854,
-    #             'near-preditor': 0.0008454392419300111,
-    #             'dist-from-spawn': 9.77400528029471e-05,
-    #             'preditor-1-away': -3.197302339773383e-06,
-    #             'kills-prey': 3.6307053467143223e-06}
-
-    # weights65 = {'bias': -8.629683049651184e-05,
-    #              'min-capsule-distance': -0.0016011666836693072,
-    #              'nearest-food': -0.003491814117702272,
-    #              'number-of-food': -0.0013725675397402376,
-    #              'closest-op-to-spawn': -5.289008986728529e-05,
-    #              'dist-from-spawn': 0.0004703318508064342,
-    #              'near-prey': -0.0029634303592519047,
-    #              'kills-prey': 1.836418199981366e-05,
-    #              'near-preditor': 0.0003266220620258886,
-    #              'preditor-1-away': -0.0001535800627560156}
-    
-    # weightsManual = {'food-score': 1,
-    #                 'bias': -0.021131724512588056,
-    #                 'score': 10,
-    #                 'dies': -1,
-    #                 'food-tile': 1,
-    #                 'cap-tile': 1,
-    #                 'food-to-win': -1,
-    #                 'caps-score': 1,
-    #                 'pacprey-score': 0,
-    #                 'pacpred-score': 0,
-    #                 'ghostprey-score': 0.0,
-    #                 'ghostpred-score': 0.0}
-
     firstAgent = CaptureQAgent(
         firstIndex,
         feature_extractor=betterFeatures,
@@ -82,98 +46,9 @@ def createTeam(firstIndex, secondIndex, isRed,
 # This class needs a feature extractor and a custom reward function that incentivises
 # ceratin game states
 
-def getFeatures(self: CaptureAgent, gameState: CaptureGameState, action):
-    maze = lambda a, b: self.getMazeDistance(a, b)
-
-    nextGameState: CaptureGameState = gameState.generateSuccessor(self.index, action)
-
-    features = {}
-    features["bias"] = 1.0
-
-    # Compute the location of pacman after he takes the action.
-    # teamate_state: AgentState = gameState.getAgentState((self.index + 2) % 4)
-    next_self_state: AgentState = nextGameState.getAgentState(self.index)
-    # team_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getTeam(gameState)]
-    ops_states: list[AgentState] = [gameState.getAgentState(idx) for idx in self.getOpponents(gameState)]
-    ops_next_states: list[AgentState] = [nextGameState.getAgentState(idx) for idx in self.getOpponents(nextGameState)]
-
-    # ourFood = self.getFoodYouAreDefending(gameState)
-    opsFood = self.getFood(gameState)
-
-    # ourCapsules = self.getCapsulesYouAreDefending(gameState)
-    opsCapsules = self.getCapsules(gameState)
-
-    def is_prey(op: AgentState):
-        return (next_self_state.isBraveGhost() and op.isPacman()) or (next_self_state.isPacman() and op.isScaredGhost())
-    
-    def is_preditor(op: AgentState):
-        return (next_self_state.isPacman() and op.isBraveGhost()) or (next_self_state.isScaredGhost() and op.isPacman())
-    
-    to_ints = lambda x: (int(x[0]), int(x[1]))
-    # vec_add = lambda x, y: (x[0] + y[0], x[1] + y[1])
-    safe_min = lambda arr: min(arr) if arr else 0
-
-    # pos = to_ints(gameState.getAgentPosition(self.index))
-    next_pos = to_ints(nextGameState.getAgentPosition(self.index))
-    start_pos = to_ints(self.start_state.getAgentPosition(self.index))
-    # teamate_pos = to_ints(gameState.getAgentPosition((self.index + 2) % 4))
-
-    prey_dists = (sorted([maze(next_pos, to_ints(op.getPosition()))
-                          for op in ops_states if is_prey(op)]))
-    preditor_dists = (sorted([maze(next_pos, to_ints(op.getPosition()))
-                              for op in ops_states if is_preditor(op)]))
-    dists_from_spawn = sorted([abs(start_pos[0] - op.getPosition()[0]) for op in ops_next_states])
-
-    if len(prey_dists) > 0:
-        features['near-prey'] = prey_dists[0]
-        features['kills-prey'] = prey_dists[0] == 0
-
-    # if len(prey_dists) > 1:
-    #     features['far-prey'] = prey_dists[1]
-
-    if len(preditor_dists) > 0:
-        features['near-preditor'] = preditor_dists[0]
-        features['preditor-1-away'] = preditor_dists[0] == 1
-        # features['dies'] = maze(pos, next_pos) > 1    # fix this
-
-    # if len(preditor_dists) > 1:
-    #     features['far-preditor'] = preditor_dists[1]
-
-    if len(opsCapsules) != 0:
-        min_dist = safe_min([maze(next_pos, cap) for cap in opsCapsules])
-        features['min-capsule-distance'] = min_dist
-
-    if len(opsFood.asList()) != 0:
-        min_dist = safe_min([maze(next_pos, food) for food in opsFood.asList()])
-        features['nearest-food'] = min_dist
-
-    # features['dist-from-start'] = min(10, maze(next_pos, start_pos))
-
-    # features['dist-from-teamate'] = maze(next_pos, teamate_pos)
-
-    features['number-of-food'] = len(self.getFood(nextGameState).asList()) - 2
-
-    # closest op to our spawn along the x-axis
-    features['closest-op-to-spawn'] = safe_min(dists_from_spawn)
-
-    # distance from spawn along the x-axis
-    features['dist-from-spawn'] = abs(next_pos[0] - start_pos[0])
-
-    # if self.red:
-    #     features['score'] = nextGameState.getScore()
-    # else:
-    #     features['score'] = -nextGameState.getScore()
-
-    for key in features:
-        features[key] /= 10.0
-
-    return features
-
 def betterFeatures(self: CaptureAgent, state: CaptureGameState, action):
     to_ints = lambda x: (int(x[0]), int(x[1]))
     maze = lambda a, b: self.getMazeDistance(to_ints(a), to_ints(b))
-
-    # Sum of 0.5^dist for every dist in an array
     inv_exp_sum = lambda arr: sum([0.33 ** x for x in arr])
 
     features = {}
@@ -184,15 +59,6 @@ def betterFeatures(self: CaptureAgent, state: CaptureGameState, action):
     nextSelfState: AgentState = nextState.getAgentState(self.index)
     opsTeam: list[AgentState] = [state.getAgentState(idx) for idx in self.getOpponents(state)]
 
-    # def pacman_prey(op: AgentState):
-    #     return nextSelfState.isBraveGhost() and op.isPacman()
-
-    # def pacman_pred(op: AgentState):
-    #     return nextSelfState.isScaredGhost() and op.isPacman()
-    
-    # def ghost_prey(op: AgentState):
-    #     return nextSelfState.isPacman() and op.isScaredGhost()
-    
     def ghost_pred(op: AgentState):
         return nextSelfState.isPacman() and op.isBraveGhost()
 
@@ -210,24 +76,17 @@ def betterFeatures(self: CaptureAgent, state: CaptureGameState, action):
     totalCapsEaten = \
         len(self.getCapsules(self.start_state)) - len(self.getCapsules(nextState))
 
-    # pacpreyDists = [maze(pos, op.getPosition()) for op in opsTeam if pacman_prey(op)]
-    # pacpredDists = [maze(pos, op.getPosition()) for op in opsTeam if pacman_pred(op)]
-    # ghostpreyDists = [maze(pos, op.getPosition()) for op in opsTeam if ghost_prey(op)]
     ghostDists = [maze(nextPos, op.getPosition()) for op in opsTeam if ghost_pred(op)]
-
-    # features['score'] = state.getScore()
-    # features['food-score'] = inv_exp_sum(foodDists) + totalFoodEaten
-    # features['caps-score'] = totalCapsEaten - min(capsDists, default=0)
-    # features['near-teamate'] = 0.5 ** maze(pos, teammatePos)
-    # features['near-ghost'] = num_one_away(ghostDists)
 
     # targets determined to minimize total distance.
     targetIndex = (self.index + 1) % 4
     teamateTargetIndex = (self.index + 3) % 4
     targetPos = state.getAgentPosition(targetIndex)
     teamateTargetPos = state.getAgentPosition(teamateTargetIndex)
-    if (maze(pos, targetPos) + maze(teammatePos, teamateTargetPos) >
-        maze(pos, teamateTargetPos) + maze(teammatePos, targetPos)):
+
+    distanceSum = maze(pos, targetPos) + maze(teammatePos, teamateTargetPos)
+    swappedDistanceSum = maze(pos, teamateTargetPos) + maze(teammatePos, targetPos)
+    if (distanceSum > swappedDistanceSum):
         targetIndex = (self.index + 3) % 4          # swap targets if it makes sense
         teamateTargetIndex = (self.index + 1) % 4
     targetPos = state.getAgentPosition(targetIndex)
@@ -242,15 +101,11 @@ def betterFeatures(self: CaptureAgent, state: CaptureGameState, action):
         if maze(targetPos, food) <= maze(nextPos, food):
             foodNeedsDefense = True
     
-    # isWinning = self.getScore(state) > 0
     defensiveMode = nextSelfState.isBraveGhost()
-    # and
     if defensiveMode:
         features['defense-target-dist'] = maze(nextPos, targetPos)
-        features['on-wrong-side'] = (
-            nextState.isOnRedSide(nextPos) 
-            != nextState.isOnRedTeam(self.index)
-        )
+        features['on-wrong-side'] = \
+            nextState.isOnRedSide(nextPos) != nextState.isOnRedTeam(self.index)
     else:
         features['food-score'] = totalFoodEaten + inv_exp_sum(foodDists)
         features['caps-score'] = totalCapsEaten + 1 / max(min(capsDists, default=1), 1)
@@ -261,12 +116,10 @@ def betterFeatures(self: CaptureAgent, state: CaptureGameState, action):
         )
     features['stop'] = action == Directions.STOP
     features['food-needs-defense'] = foodNeedsDefense
-    features['kills-target'] = (targetDist == 0
-                                and (nextSelfState.isBraveGhost() or targetState.isScaredGhost()))
-    
+    features['kills-target'] = targetDist == 0 and \
+        (nextSelfState.isBraveGhost() or targetState.isScaredGhost())
     features['dies'] = maze(pos, nextPos) > 1
     features['ghost-1-away'] = min(ghostDists, default=0) == 1
-
     return features
 
 class QLearningAgent(ReinforcementAgent):
@@ -417,7 +270,7 @@ class PacmanQAgent(QLearningAgent):
 
 class CaptureQAgent(PacmanQAgent, CaptureAgent):
     def __init__(self, index, weights=None, epsilon=0.5, gamma=0.75, alpha=0.0002,
-                 numTraining=0, update_frequency=100, feature_extractor=getFeatures,
+                 numTraining=0, update_frequency=100, feature_extractor=betterFeatures,
                  debug=False):
         CaptureAgent.__init__(self, index)
         PacmanQAgent.__init__(
