@@ -137,21 +137,33 @@ class DummyAgent1(CaptureAgent):
         
         ghost_positions = [opponent.getPosition() for opponent in opponent_states if not opponent.isPacman() and opponent.getPosition() is not None]
     
-
         if len(ghost_positions) > 0:
             myPos = successor.getAgentState(self.index).getPosition()
             minDistance = min([self.getMazeDistance(myPos, ghost) for ghost in ghost_positions])
             features['distanceToGhost'] = minDistance
         else:
             features['distanceToGhost'] = 0
-            
+
+        # Compute distance to the nearest capsule
+        capsuleList = self.getCapsules(successor)
+
+        if len(capsuleList) > 0:
+            myPos = successor.getAgentState(self.index).getPosition()
+            minCapsuleDistance = min([self.getMazeDistance(myPos, capsule) for capsule in capsuleList])
+            features['distanceToCapsule'] = minCapsuleDistance
+        else:
+            features['distanceToCapsule'] = 0
+
+
         return features
+            
 
     def getWeights(self, gameState, action):
         return {
             'successorScore': 100,
             'distanceToFood': -1,
-            'distanceToGhost': 0.5
+            'distanceToGhost': 0.5,
+            'distanceToCapsule': -0.75
         }
 
 
