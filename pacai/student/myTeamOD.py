@@ -263,6 +263,14 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
         numCapsules = len(self.getCapsulesYouAreDefending(successorGameState))
         features['ourCapsules'] = numCapsules
 
+        # compute scaredTimer
+        # if it's greater than #
+            # and we're close to the opp & opp is 
+                # insta die
+            # elif we're close to the opp side 
+                # cross the border --> this is where we can switch to offense
+                # might not implement this rn
+
         return features
 
     def getWeights(self, gameState, action):
@@ -272,7 +280,7 @@ class DefensiveReflexAgent(ReflexCaptureAgent):
             'invaderDistance': -10,
             'stop': -100,
             'reverse': -2,
-            'ourFood': 200,
-            'ourCapsules': 250
+            'ourFood': 250,
+            'ourCapsules': 400
         }
     
