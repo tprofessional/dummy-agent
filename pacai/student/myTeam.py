@@ -6,6 +6,15 @@ from pacai.core.gamestate import AbstractGameState
 from pacai.util.probability import flipCoin
 from pacai.core.directions import Directions
 from random import choice
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import random
+import numpy as np
+# import gym
+from collections import deque
+from pacai.bin.capture import CaptureGameState
+from pacai.student.myTeam import CaptureQAgent
 
 def createTeam(firstIndex, secondIndex, isRed,
         first = 'pacai.student.defensiveAgents.DummyAgent1',
@@ -267,6 +276,8 @@ class PacmanQAgent(QLearningAgent):
         self.doAction(state, action)
 
         return action
+    
+from pacai.student.DQN import DQN
 
 class CaptureQAgent(PacmanQAgent, CaptureAgent):
     def __init__(self, index, weights=None, epsilon=0.5, gamma=0.75, alpha=0.0002,
@@ -280,6 +291,16 @@ class CaptureQAgent(PacmanQAgent, CaptureAgent):
             alpha=alpha,
             numTraining=numTraining
         )
+
+        # Initialize DQN and target DQN
+        dqn = DQN()
+        target_dqn = DQN()
+        target_dqn.load_state_dict(dqn.state_dict())
+        target_dqn.eval()
+
+        # Optimizer and loss
+        optimizer = optim.Adam(dqn.parameters(), lr=1e-3)
+        loss_fn = nn.MSELoss()
 
         self.startDiscountRate = self.getDiscountRate()
         self.startEpsilon = self.getEpsilon()
@@ -351,6 +372,8 @@ class CaptureQAgent(PacmanQAgent, CaptureAgent):
         QValue = 0.0
         for feature, value in features_dict.items():
             QValue += self.get_weight(feature) * value
+
+        # Use DQN to compute q values for the next state
 
         return QValue
     
